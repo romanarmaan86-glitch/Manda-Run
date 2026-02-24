@@ -1,0 +1,28 @@
+[gd_scene load_steps=5 format=3 uid="uid://iju0m5gtwv5y"]
+
+[ext_resource type="PackedScene" uid="uid://dfw6lps87ntor" path="res://platform.tscn" id="1_uu6xs"]
+[ext_resource type="PackedScene" uid="uid://c5h4sybc8glo6" path="res://player.tscn" id="2_r0du0"]
+[ext_resource type="PackedScene" uid="uid://ck0pmr4idf3gk" path="res://floor.tscn" id="3_cm0pq"]
+[ext_resource type="Script" uid="uid://hjtdcst0f1w7" path="res://platformspawner.gd" id="3_r0du0"]
+
+[node name="Gameworld" type="Node"]
+
+[node name="World3D" type="Node3D" parent="."]
+
+[node name="player" parent="World3D" instance=ExtResource("2_r0du0")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1335697, 0)
+
+[node name="platformspawner" type="Node3D" parent="World3D"]
+script = ExtResource("3_r0du0")
+platform_scene = ExtResource("1_uu6xs")
+
+[node name="Camera3D" type="Camera3D" parent="World3D"]
+transform = Transform3D(-2.1706747e-07, 0.25881907, -0.9659258, 1.1313334e-08, 0.9659259, 0.25881907, 1, 4.5253362e-08, -2.1259919e-07, -2.8507843, 2.5875745, 0)
+current = true
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="World3D"]
+transform = Transform3D(-0.5085188, 0.51043296, 0.69344574, -0.1294096, -0.84150636, 0.5245189, 0.85127074, 0.17698902, 0.49397647, 0, 0, 0)
+
+[node name="StaticBody3D" parent="." instance=ExtResource("3_cm0pq")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 132.93236, 0, 0)
+visible = false
