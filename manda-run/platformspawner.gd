@@ -22,21 +22,22 @@ func _physics_process(delta):
 				platforms.erase(platform)
 				spawn_platform()
 
-func spawn_platform(index = -1):
+func spawn_platform(index := -1):
 	var new_platform = platform_scene.instantiate()
-	
+
 	var last_x = 0.0
 	if platforms.size() > 0:
-		last_x = platforms[-1].position.x + PLATFORM_LENGTH
+		last_x = platforms[-1].position.x + PLATFORM_LENGTH 
 	elif index >= 0:
 		last_x = index * PLATFORM_LENGTH
-	
+	else:
+		last_x = 0.0
+
 	new_platform.position = Vector3(last_x, 0, 0)
 	add_child(new_platform)
 	platforms.append(new_platform)
-	
-	# 🔥 SPAWN OBSTACLE HERE (40% chance)!
-	var obs_spawner = get_parent().get_node("obstaclespawner")
+
+	# 🔥 CALL OBSTACLE SPWNER (remove your old spawn_obstacle func entirely!)
+	var obs_spawner = get_parent().get_node("ObstacleSpawner")
 	if obs_spawner:
 		obs_spawner.spawn_obstacle(new_platform)
-		print("Platform spawned - checking obs...")  # Debug: See in Output
