@@ -1,140 +1,190 @@
 extends Node3D
 
-const LANES := [-1.5, 0.0, 1.5]
-const LANE_INDICES := [0, 1, 2]
+# ────────────────────────────────────────────────
+# CONSTANTS – smaller & better positioned
+# ────────────────────────────────────────────────
 
-const JUMP_OVER_SIZE   := Vector3(1.2, 1.1, 0.9)
-const SLIDE_UNDER_SIZE := Vector3(1.2, 0.6, 0.9)
-const EVADE_SIZE       := Vector3(17.0, 1.65, 0.8)
+const LANES: Array[float] = [-1.5, 0.0, 1.5]
+const LANE_INDICES: Array[int] = [0, 1, 2]
+const PLATFORM_LENGTH: float = 20.0
+
+# Much smaller sizes + appropriate proportions
+const JUMP_OVER_SIZE:   Vector3 = Vector3(1, 0.5, 0.5)   # red   – low jump obstacle
+const SLIDE_UNDER_SIZE: Vector3 = Vector3(1, 0.5, 0.5)   # blue  – floating / must slide under
+const EVADE_SIZE:       Vector3 = Vector3(3, 2, 0.6)  # yellow – train/wall, narrower
+
+# ────────────────────────────────────────────────
+# EXPORTED
+# ────────────────────────────────────────────────
 
 @export var obstacle_scene: PackedScene
-@export var spawn_chance: float = 0.6
+@export var spawn_chance: float = 0.99999   # quite dense – adjust to 0.92–0.95 if you want more
 
-# Patterns: Array of arrays → use plain Array to avoid strict subtype issues
+# ────────────────────────────────────────────────
+# PATTERNS
+# ────────────────────────────────────────────────
+
 var patterns: Array = [
-# Empty (breathing room)
-	[],
+	# Singles
+	[[0, 0]], [[0, 1]], [[0, 2]],
+	[[1, 0]], [[1, 1]], [[1, 2]],
+	[[2, 0]], [[2, 1]], [[2, 2]],
 
-	# Single barriers (jump/slide/evade)
-	[[0, 0]], [[0, 1]], [[0, 2]],  # Jump barriers (tall)
-	[[1, 0]], [[1, 1]], [[1, 2]],  # Slide barriers (low)
-	[[2, 0]], [[2, 1]], [[2, 2]],  # Trains/evade blockers
+	# Double combos
+	[[0, 0], [1, 2]], [[0, 2], [1, 0]], [[0, 1], [1, 0]],
+	[[2, 0], [2, 2]], [[2, 0], [2, 1]], [[2, 1], [2, 2]],
+	[[0, 0], [0, 2]], [[1, 0], [1, 2]],
 
-	# Double trains (evades) - MOST COMMON IN SUBWAY (sides safe middle, or side+middle safe opposite)
-	[[2, 0], [2, 2]],  # Trains left+right (safe middle) - CLASSIC
-	[[2, 0], [2, 1]],  # Trains left+middle (safe right)
-	[[2, 1], [2, 2]],  # Trains middle+right (safe left)
-
-
-
-	# === NEW: TRAIN + JUMP/SLIDE + TRAIN (TRIPLE PATTERNS) ===
-	# Safe middle: trains sides + jump/slide middle
-	[[2, 0], [0, 1], [2, 2]],  # train left + JUMP middle + train right
-	[[2, 0], [1, 1], [2, 2]],  # train left + SLIDE middle + train right
-
-	# Safe left: trains middle/right + jump/slide left
-	[[2, 1], [0, 0], [2, 2]],  # train middle + JUMP left + train right
-	[[2, 1], [1, 0], [2, 2]],  # train middle + SLIDE left + train right
-
-	# Safe right: trains left/middle + jump/slide right
-	[[2, 0], [0, 2], [2, 1]],  # train left + JUMP right + train middle
-	[[2, 0], [1, 2], [2, 1]],  # train left + SLIDE right + train middle
-
-	# Extra variants (shuffled order for variety, validation handles)
-	[[2, 2], [0, 1], [2, 0]],  # train right + JUMP middle + train left (same as first, reversed)
-	[[2, 2], [1, 1], [2, 0]],  # train right + SLIDE middle + train left
+	# Triple patterns
+	[[2, 0], [0, 1], [2, 2]],
+	[[2, 0], [1, 1], [2, 2]],
+	[[2, 1], [0, 0], [2, 2]],
+	[[2, 1], [1, 0], [2, 2]],
+	[[2, 0], [0, 2], [2, 1]],
+	[[2, 0], [1, 2], [2, 1]],
 ]
 
-var prev_safe_lanes: Array = LANE_INDICES.duplicate()
+var prev_safe_lanes: Array[int] = [0, 1, 2]
+
+# ────────────────────────────────────────────────
+# MAIN SPAWN FUNCTION
+# ────────────────────────────────────────────────
 
 func spawn_obstacle(platform: Node3D) -> void:
 	if randf() > spawn_chance:
-		prev_safe_lanes = LANE_INDICES.duplicate()
+		print_debug("→ EMPTY (rare)")
+		prev_safe_lanes = [0, 1, 2]
 		return
-	
+
 	var valid_patterns: Array = []
-	for pattern in patterns:
+	for pattern: Array in patterns:
 		if is_valid_pattern(pattern):
 			valid_patterns.append(pattern)
-	
+
 	if valid_patterns.is_empty():
-		printerr("No valid patterns found – using empty")
-		prev_safe_lanes = LANE_INDICES.duplicate()
+		spawn_single_fallback(platform)
 		return
-	
+
 	var chosen: Array = valid_patterns[randi() % valid_patterns.size()]
 	instantiate_pattern(platform, chosen)
-	
-	# Update safe lanes for next validation
-	prev_safe_lanes.clear()
-	for i in LANE_INDICES:
+	print_debug("Spawned: ", str(chosen), "  |  Next safe lanes: ", prev_safe_lanes)
+
+# ────────────────────────────────────────────────
+# FALLBACK – always at least one safe path
+# ────────────────────────────────────────────────
+
+func spawn_single_fallback(platform: Node3D) -> void:
+	if prev_safe_lanes.is_empty():
+		return
+
+	var safe_lane_idx: int = prev_safe_lanes[randi() % prev_safe_lanes.size()]
+	var obs_type: int = randi() % 3
+	spawn_helper(platform, obs_type, LANES[safe_lane_idx], 0.0)
+	print_debug("Fallback → type ", obs_type, " lane ", safe_lane_idx)
+
+# ────────────────────────────────────────────────
+# CHECK IF PATTERN KEEPS AT LEAST ONE PREVIOUS SAFE LANE
+# ────────────────────────────────────────────────
+
+func is_valid_pattern(pattern: Array) -> bool:
+	var this_safe: Array[int] = []
+	for i: int in LANE_INDICES:
 		var blocked := false
-		for obs in chosen:
-			if obs[1] == i:
+		for obs: Array in pattern:
+			if obs.size() >= 2 and obs[1] == i:
+				blocked = true
+				break
+		if not blocked:
+			this_safe.append(i)
+
+	for safe_prev: int in prev_safe_lanes:
+		if this_safe.has(safe_prev):
+			return true
+	return false
+
+# ────────────────────────────────────────────────
+# INSTANTIATE ALL OBSTACLES IN A PATTERN
+# ────────────────────────────────────────────────
+
+func instantiate_pattern(platform: Node3D, pattern: Array) -> void:
+	for obs_data: Array in pattern:
+		if obs_data.size() < 2:
+			continue
+		var type_idx: int = obs_data[0]
+		var lane_idx: int = obs_data[1]
+		var lane_z: float = LANES[lane_idx]
+
+		var x_offset: float
+		match type_idx:
+			0, 1: x_offset = randf_range(3.0, PLATFORM_LENGTH - 3.0)
+			2:    x_offset = randf_range(1.5, PLATFORM_LENGTH - 5.5)  # trains start earlier
+			_:    x_offset = randf_range(2.0, PLATFORM_LENGTH - 2.0)
+
+		spawn_helper(platform, type_idx, lane_z, x_offset)
+
+	# Update safe lanes for next platform
+	prev_safe_lanes.clear()
+	for i: int in LANE_INDICES:
+		var blocked := false
+		for obs: Array in pattern:
+			if obs.size() >= 2 and obs[1] == i:
 				blocked = true
 				break
 		if not blocked:
 			prev_safe_lanes.append(i)
 
-func is_valid_pattern(pattern: Array) -> bool:
-	var this_safe: Array = []
-	for i in LANE_INDICES:
-		var blocked := false
-		for obs in pattern:
-			if obs[1] == i:
-				blocked = true
-				break
-		if not blocked:
-			this_safe.append(i)
-	
-	for safe_prev in prev_safe_lanes:
-		if this_safe.has(safe_prev):
-			return true
-	return false
-
-func instantiate_pattern(platform: Node3D, pattern: Array) -> void:
-	for obs_data in pattern:
-		var type_idx: int = obs_data[0]
-		var lane_idx: int = obs_data[1]
-		var lane_z: float = LANES[lane_idx]
-		var x_offset: float = 1.0 + randf_range(0.0, 2.0) if type_idx == 2 else randf_range(4.0, 12.0)
-		spawn_helper(platform, type_idx, lane_z, x_offset)
-	
-	print("Pattern: ", pattern, " | Next safe lanes: ", prev_safe_lanes)
+# ────────────────────────────────────────────────
+# CREATE ONE OBSTACLE – with custom height & position
+# ────────────────────────────────────────────────
 
 func spawn_helper(platform: Node3D, type_idx: int, lane_z: float, x_offset: float) -> void:
-	var obstacle := obstacle_scene.instantiate() as Node3D
-	if obstacle == null:
+	var obstacle: Node3D = obstacle_scene.instantiate()
+	if not obstacle:
 		return
-	
-	obstacle.obstacle_type = type_idx
-	
+
+	# Set type for your obstacle script logic
+	obstacle.set("obstacle_type", type_idx)
+
 	var mesh_size: Vector3
 	match type_idx:
 		0: mesh_size = JUMP_OVER_SIZE
 		1: mesh_size = SLIDE_UNDER_SIZE
 		2: mesh_size = EVADE_SIZE
 		_: mesh_size = Vector3.ONE
-	
-	obstacle.position = Vector3(x_offset, mesh_size.y / 2.0 + 0.01, lane_z)
-	
-	var mesh := obstacle.get_node_or_null("MeshInstance3D") as MeshInstance3D
+
+	# ─── Custom Y position per type ────────────────────────────────
+	var y_pos: float
+	match type_idx:
+		0:  # RED – jump over → very low, almost touching ground
+			y_pos = mesh_size.y / 2.0 - 0.12
+		1:  # BLUE – slide under → raised / floating
+			y_pos = 1.2           # ← tune this (1.0–1.4 range usually good)
+		2:  # YELLOW – normal height train/wall
+			y_pos = mesh_size.y / 2.0
+		_:
+			y_pos = mesh_size.y / 2.0
+
+	obstacle.position = Vector3(x_offset, y_pos, lane_z)
+
+	# ─── Visual (Mesh) ─────────────────────────────────────────────
+	var mesh: MeshInstance3D = obstacle.get_node_or_null("MeshInstance3D")
 	if mesh:
-		mesh.mesh = BoxMesh.new()
-		mesh.mesh.size = mesh_size
-		mesh.scale = Vector3.ONE
-		var mat := StandardMaterial3D.new()
+		var box_mesh = BoxMesh.new()
+		box_mesh.size = mesh_size
+		mesh.mesh = box_mesh
+
+		var mat = StandardMaterial3D.new()
 		match type_idx:
-			0: mat.albedo_color = Color.RED
-			1: mat.albedo_color = Color.BLUE
-			2: mat.albedo_color = Color.YELLOW
+			0: mat.albedo_color = Color(0.98, 0.18, 0.18)   # vivid red
+			1: mat.albedo_color = Color(0.18, 0.45, 0.98)   # vivid blue
+			2: mat.albedo_color = Color(0.98, 0.88, 0.12)   # vivid yellow
 		mesh.material_override = mat
-	
-	var area_coll := obstacle.get_node_or_null("Area3D/CollisionShape3D") as CollisionShape3D
-	if area_coll:
-		var box := BoxShape3D.new()
-		box.size = mesh_size
-		area_coll.shape = box
-		area_coll.scale = Vector3.ONE
-	
+
+	# ─── Collision ─────────────────────────────────────────────────
+	var coll_shape: CollisionShape3D = obstacle.get_node_or_null("Area3D/CollisionShape3D")
+	if coll_shape:
+		var box_shape = BoxShape3D.new()
+		box_shape.size = mesh_size
+		coll_shape.shape = box_shape
+
 	platform.add_child(obstacle)

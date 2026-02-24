@@ -12,7 +12,7 @@ const SLIDE_TIME        = 0.6
 const NORMAL_HEIGHT     = 1.6
 const SLIDE_HEIGHT      = 0.8
 
-const LANE_LERP_SPEED   = 18.0      # ← increased from 12 → much faster lane changes
+const LANE_LERP_SPEED   = 12.0      # ← increased from 12 → much faster lane changes
 
 const DEATH_Y           = -10.0
 

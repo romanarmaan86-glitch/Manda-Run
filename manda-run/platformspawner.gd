@@ -3,8 +3,8 @@ extends Node3D
 
 const PLATFORM_COUNT := 7
 const PLATFORM_LENGTH := 20.0
-const DELETE_X := -12.0
-const MOVE_SPEED := 10.0
+const DELETE_X := -20
+const MOVE_SPEED := 15.0
 
 @export var platform_scene: PackedScene
 
