@@ -1,6 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://ha4tnus5iqr7"]
+[gd_scene load_steps=4 format=3 uid="uid://ha4tnus5iqr7"]
 
 [ext_resource type="Script" uid="uid://dmcypki8njan6" path="res://obstacle.gd" id="1_sl1jc"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_sl1jc"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_aubd6"]
 
@@ -9,6 +11,7 @@ script = ExtResource("1_sl1jc")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
+mesh = SubResource("BoxMesh_sl1jc")
 
 [node name="Area3D" type="Area3D" parent="."]
 

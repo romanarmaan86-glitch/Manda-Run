@@ -23,6 +23,7 @@ platform_scene = ExtResource("1_uu6xs")
 [node name="obstaclespawner" type="Node3D" parent="World3D"]
 script = ExtResource("2_uu6xs")
 obstacle_scene = ExtResource("5_fos0i")
+spawn_chance = 1.0
 
 [node name="Camera3D" type="Camera3D" parent="World3D"]
 transform = Transform3D(-2.1706747e-07, 0.25881907, -0.9659258, 1.1313334e-08, 0.9659259, 0.25881907, 1, 4.5253362e-08, -2.1259919e-07, -2.8507843, 2.5875745, 0)

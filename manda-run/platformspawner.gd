@@ -1,3 +1,4 @@
+# platformspawner.gd (FULL - No changes, but full for completeness)
 extends Node3D
 
 const PLATFORM_COUNT := 7
@@ -7,37 +8,44 @@ const MOVE_SPEED := 10.0
 
 @export var platform_scene: PackedScene
 
-var platforms: Array = []
+var platforms: Array[Node3D] = []
 
-func _ready():
+func _ready() -> void:
 	for i in PLATFORM_COUNT:
 		spawn_platform(i)
 
-func _physics_process(delta):
+func _physics_process(delta: float) -> void:
 	for platform in platforms.duplicate():
-		if platform:
-			platform.position.x -= MOVE_SPEED * delta
-			if platform.position.x < DELETE_X:
-				platform.queue_free()
-				platforms.erase(platform)
-				spawn_platform()
+		if platform == null or not is_instance_valid(platform):
+			platforms.erase(platform)
+			continue
+		
+		platform.position.x -= MOVE_SPEED * delta
+		
+		if platform.position.x < DELETE_X:
+			platform.queue_free()
+			platforms.erase(platform)
+			spawn_platform()
 
-func spawn_platform(index := -1):
-	var new_platform = platform_scene.instantiate()
-
-	var last_x = 0.0
+func spawn_platform(index: int = -1) -> void:
+	var new_platform = platform_scene.instantiate() as Node3D
+	if new_platform == null:
+		printerr("Failed to instantiate platform_scene!")
+		return
+	
+	var last_x := 0.0
 	if platforms.size() > 0:
-		last_x = platforms[-1].position.x + PLATFORM_LENGTH 
+		last_x = platforms.back().position.x + PLATFORM_LENGTH
 	elif index >= 0:
 		last_x = index * PLATFORM_LENGTH
-	else:
-		last_x = 0.0
-
+	
 	new_platform.position = Vector3(last_x, 0, 0)
 	add_child(new_platform)
 	platforms.append(new_platform)
-
-	# 🔥 CALL OBSTACLE SPWNER (remove your old spawn_obstacle func entirely!)
-	var obs_spawner = get_parent().get_node("ObstacleSpawner")
+	
+	var obs_spawner = get_parent().get_node_or_null("obstaclespawner")
 	if obs_spawner:
 		obs_spawner.spawn_obstacle(new_platform)
+		print("Platform created at x = ", last_x, " – requested obstacle spawn")
+	else:
+		printerr("obstaclespawner node not found! Check scene tree naming.")
