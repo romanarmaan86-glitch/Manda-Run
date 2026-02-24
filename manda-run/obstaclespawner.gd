@@ -1,64 +1,59 @@
 extends Node3D
 
-# -----------------------
-# CONFIG
-# -----------------------
-const LANES = [-1.5, 0.0, 1.5]  # Z positions
-const PLAYER_NORMAL_HEIGHT = 1.6
-const PLAYER_SLIDE_HEIGHT = 0.8
-const PLATFORM_HEIGHT = 0.0      # Y of platforms
-
-# Obstacle sizes
-const JUMP_OVER_SIZE = Vector3(2, 1.5, 1.5)      # X,Y,Z
-const SLIDE_UNDER_SIZE = Vector3(2, 0.8, 1.5)
-const EVADE_SIZE = Vector3(2, 2.0, 1.5)
-
+const LANES = [-1.5, 0.0, 1.5]
 @export var obstacle_scene: PackedScene
+@export var spawn_chance := 0.4  # 40% platforms get obs
 
-# Chance to spawn an obstacle per platform
-@export var spawn_chance := 0.5
+# SMALLER sizes: X=1.4 (quick pass), Z=0.9 (lane-perfect, no overlap), Y tuned for actions
+const JUMP_OVER_SIZE = Vector3(1.4, 1.1, 0.9)     # Jump: low enough (1.1 < 1.7 apex)
+const SLIDE_UNDER_SIZE = Vector3(1.4, 0.65, 0.9)  # Slide: under 0.8 player
+const EVADE_SIZE = Vector3(1.4, 1.65, 0.9)        # Evade: tall narrow (must lane switch)
 
-# -----------------------
-# SPAWN OBSTACLE
-# -----------------------
 func spawn_obstacle(platform):
-	if randf() > spawn_chance:
-		return
+	if randf() > spawn_chance: return
 
 	var obstacle = obstacle_scene.instantiate() as Node3D
 
-	# Random lane
-	var lane_index = randi() % LANES.size()
+	# Random lane & type
+	var lane_index = randi() % 3
 	var lane_z = LANES[lane_index]
+	var type = randi() % 3  # 0=jump,1=slide,2=evade
 
-	# Random type
-	var type = randi() % 3
-	var mesh_size = Vector3.ZERO
+	var mesh_size: Vector3
 	match type:
 		0:
-			obstacle.name = "JumpOver"
+			obstacle.obstacle_type = obstacle.ObstacleType.JUMP_OVER
 			mesh_size = JUMP_OVER_SIZE
 		1:
-			obstacle.name = "SlideUnder"
+			obstacle.obstacle_type = obstacle.ObstacleType.SLIDE_UNDER
 			mesh_size = SLIDE_UNDER_SIZE
 		2:
-			obstacle.name = "Evade"
+			obstacle.obstacle_type = obstacle.ObstacleType.EVADE
 			mesh_size = EVADE_SIZE
 
-	# Set position on platform
-	obstacle.position = platform.position + Vector3(PLATFORM_HEIGHT + mesh_size.y/2, 0, lane_z)
+	# LOCAL position: closer for reaction (3-10u ahead), center Y, lane Z
+	var x_offset = randf_range(3.0, 10.0)
+	obstacle.position = Vector3(x_offset, mesh_size.y / 2 + 0.01, lane_z)
 
-	# Adjust MeshInstance3D scale
-	var mesh = obstacle.get_node("MeshInstance3D")
-	if mesh:
-		mesh.scale = mesh_size
+	# 🔥 MESH: Create + size + COLOR (distinguish types!)
+	var mesh_node = obstacle.get_node("MeshInstance3D")
+	if mesh_node:
+		mesh_node.mesh = BoxMesh.new()
+		mesh_node.mesh.size = mesh_size  # Direct size!
+		var mat = StandardMaterial3D.new()
+		match type:
+			0: mat.albedo_color = Color.RED      # Jump over
+			1: mat.albedo_color = Color.BLUE     # Slide under
+			2: mat.albedo_color = Color.YELLOW   # Evade (lane switch)
+		mesh_node.material_override = mat
 
-	# Adjust CollisionShape3D
-	var coll = obstacle.get_node("CollisionShape3D")
-	if coll:
+	# 🔥 AREA DETECT: Area3D/CollisionShape3D (not root!)
+	var area_coll = obstacle.get_node("Area3D/CollisionShape3D")
+	if area_coll:
 		var box = BoxShape3D.new()
-		box.size = mesh_size
-		coll.shape = box
+		box.size = mesh_size * 1.02  # Slight overlap for forgiving detect
+		area_coll.shape = box
 
-	# Add to scene
-	add_child(obstacle)
+	# 🚀 REPARENT to PLATFORM: auto-move + delete!
+	platform.add_child(obstacle)
+	print("Obs spawned! Type: ", type, " Lane: ", lane_z, " Size: ", mesh_size)
