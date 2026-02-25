@@ -7,7 +7,6 @@ const DELETE_X := -20
 const MOVE_SPEED := 15.0
 
 @export var platform_scene: PackedScene
-
 var platforms: Array[Node3D] = []
 
 func _ready() -> void:

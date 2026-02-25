@@ -8,55 +8,55 @@ const LANES: Array[float] = [-1.5, 0.0, 1.5]
 const LANE_INDICES: Array[int] = [0, 1, 2]
 const PLATFORM_LENGTH: float = 20.0
 
-# Sizes (unchanged from last – small & positioned correctly)
-const JUMP_OVER_SIZE:   Vector3 = Vector3(2.4, 1.6, 1.2)   # red
-const SLIDE_UNDER_SIZE: Vector3 = Vector3(2.4, 1.4, 1.2)   # blue
-const EVADE_SIZE:       Vector3 = Vector3(3.6, 2.4, 1.15)  # yellow – EVADES EVERYWHERE!
+const JUMP_OVER_SIZE:   Vector3 = Vector3(0.5, 0.5, 0.5)
+const SLIDE_UNDER_SIZE: Vector3 = Vector3(0.5, 0.5, 0.5)
+const EVADE_SIZE:       Vector3 = Vector3(3, 2, 0.6)
 
 # ────────────────────────────────────────────────
 # EXPORTED
 # ────────────────────────────────────────────────
 
 @export var obstacle_scene: PackedScene
-@export var spawn_chance: float = 0.98   # ALMOST ALWAYS spawn!
+@export var spawn_chance: float = 0.97
 
 # ────────────────────────────────────────────────
-# EVADE-HEAVY PATTERNS (80%+ EVADES!)
-# Put EVADE patterns FIRST & MOST – random pick = evade chaos!
+# PATTERNS — focused on grouped evades
 # ────────────────────────────────────────────────
 
 var patterns: Array = [
-	# ─── TRIPLES: 2 EVADES + 1 other (EVADES ON SIDES/MIDDLE) ───
-	[[2, 0], [0, 1], [2, 2]], [[2, 0], [1, 1], [2, 2]],
-	[[2, 1], [0, 0], [2, 2]], [[2, 1], [1, 0], [2, 2]],
-	[[2, 0], [0, 2], [2, 1]], [[2, 0], [1, 2], [2, 1]],
-	[[2, 2], [0, 1], [2, 0]], [[2, 2], [1, 1], [2, 0]],  # mirrored
+	# Most wanted: evades on sides + middle jump or slide
+	[[2, 0], [0, 1], [2, 2]],   # left evade + middle jump + right evade
+	[[2, 0], [1, 1], [2, 2]],   # left evade + middle slide + right evade
+	[[2, 2], [0, 1], [2, 0]],   # mirrored
+	[[2, 2], [1, 1], [2, 0]],
+	
 
-	# ─── DOUBLE EVADES ─── (pure evade walls!)
-	[[2, 0], [2, 2]], [[2, 0], [2, 1]], [[2, 1], [2, 2]],
-	[[2, 2], [2, 0]], [[2, 1], [2, 0]], [[2, 2], [2, 1]],  # duplicates for higher chance
+	# Tight evade groups / walls
 
-	# ─── SINGLE EVADE (fallback feel) ─── REPEAT MANY TIMES!
-	[[2, 0]], [[2, 0]], [[2, 0]],  # lane 0 evade x3
-	[[2, 1]], [[2, 1]], [[2, 1]],  # lane 1 x3
-	[[2, 2]], [[2, 2]], [[2, 2]],  # lane 2 x3
+	[[2, 0], [2, 1]],           # left + middle
+	[[2, 1], [2, 2]],           # middle + right
+	[[2, 0], [2, 2]],           # left + right only
 
-	# ─── EVADE + JUMP/SLIDE (rare variety, LAST = lower chance)
-	[[2, 0], [0, 2]], [[2, 2], [0, 0]], [[2, 1], [0, 0]],
-	[[2, 0], [1, 2]], [[2, 2], [1, 0]], [[2, 1], [1, 0]],
-	[[0, 0]], [[0, 1]], [[0, 2]],  # pure jumps (very rare)
-	[[1, 0]], [[1, 1]], [[1, 2]],  # pure slides (very rare)
+
+	# Single evades (still frequent)
+	[[2, 0]], [[2, 0]], [[2, 0]],
+	[[2, 1]], [[2, 1]], [[2, 1]],
+	[[2, 2]], [[2, 2]], [[2, 2]],
+
+	# Rare non-evade patterns (at the end = low chance)
+	[[0, 0]], [[0, 1]], [[0, 2]],
+	[[1, 0]], [[1, 1]], [[1, 2]],
 ]
 
 var prev_safe_lanes: Array[int] = [0, 1, 2]
 
 # ────────────────────────────────────────────────
-# SPAWN – EVADES GUARANTEED!
+# MAIN SPAWN
 # ────────────────────────────────────────────────
 
 func spawn_obstacle(platform: Node3D) -> void:
 	if randf() > spawn_chance:
-		print_debug("→ ULTRA-RARE EMPTY")
+		print_debug("→ rare empty")
 		prev_safe_lanes = [0, 1, 2]
 		return
 
@@ -66,26 +66,26 @@ func spawn_obstacle(platform: Node3D) -> void:
 			valid_patterns.append(pattern)
 
 	if valid_patterns.is_empty():
-		spawn_evade_fallback(platform)  # ALWAYS EVADE!
+		spawn_evade_fallback(platform)
 		return
 
 	var chosen: Array = valid_patterns[randi() % valid_patterns.size()]
 	instantiate_pattern(platform, chosen)
-	print_debug("🟡 EVADE SPAWN: ", str(chosen), " | Safe: ", prev_safe_lanes)
+	print_debug("Spawned pattern: ", str(chosen), " | Safe next: ", prev_safe_lanes)
 
 # ────────────────────────────────────────────────
-# FALLBACK: ALWAYS SPAWN EVADE (YELLOW!)
+# FALLBACK = always an evade
 # ────────────────────────────────────────────────
 
 func spawn_evade_fallback(platform: Node3D) -> void:
 	if prev_safe_lanes.is_empty():
 		return
 	var safe_lane_idx: int = prev_safe_lanes[randi() % prev_safe_lanes.size()]
-	spawn_helper(platform, 2, LANES[safe_lane_idx], 0.0)  # TYPE 2 = EVADE ONLY!
-	print_debug("🟡 EVADE FALLBACK lane ", safe_lane_idx)
+	spawn_helper(platform, 2, LANES[safe_lane_idx], 0.0)
+	print_debug("Fallback evade → lane ", safe_lane_idx)
 
 # ────────────────────────────────────────────────
-# VALIDATION (unchanged)
+# PATTERN VALIDATION
 # ────────────────────────────────────────────────
 
 func is_valid_pattern(pattern: Array) -> bool:
@@ -105,10 +105,13 @@ func is_valid_pattern(pattern: Array) -> bool:
 	return false
 
 # ────────────────────────────────────────────────
-# INSTANTIATE PATTERN (unchanged)
+# PLACE ALL OBSTACLES IN THE PATTERN AT ~THE SAME POSITION
 # ────────────────────────────────────────────────
 
 func instantiate_pattern(platform: Node3D, pattern: Array) -> void:
+	# One base x-position for the whole group → makes them appear together
+	var base_x: float = randf_range(4.0, PLATFORM_LENGTH - 6.0)
+
 	for obs_data: Array in pattern:
 		if obs_data.size() < 2:
 			continue
@@ -116,14 +119,12 @@ func instantiate_pattern(platform: Node3D, pattern: Array) -> void:
 		var lane_idx: int = obs_data[1]
 		var lane_z: float = LANES[lane_idx]
 
-		var x_offset: float
-		match type_idx:
-			0, 1: x_offset = randf_range(3.0, PLATFORM_LENGTH - 3.0)
-			2:    x_offset = randf_range(1.5, PLATFORM_LENGTH - 5.5)
-			_:    x_offset = randf_range(2.0, PLATFORM_LENGTH - 2.0)
+		# Small random variation so it doesn't look too robotic
+		var x_offset: float = base_x + randf_range(-0.9, 0.9)
 
 		spawn_helper(platform, type_idx, lane_z, x_offset)
 
+	# Update safe lanes for next platform
 	prev_safe_lanes.clear()
 	for i: int in LANE_INDICES:
 		var blocked := false
@@ -135,7 +136,7 @@ func instantiate_pattern(platform: Node3D, pattern: Array) -> void:
 			prev_safe_lanes.append(i)
 
 # ────────────────────────────────────────────────
-# SPAWN SINGLE (with Y positioning)
+# CREATE SINGLE OBSTACLE
 # ────────────────────────────────────────────────
 
 func spawn_helper(platform: Node3D, type_idx: int, lane_z: float, x_offset: float) -> void:
@@ -152,12 +153,11 @@ func spawn_helper(platform: Node3D, type_idx: int, lane_z: float, x_offset: floa
 		2: mesh_size = EVADE_SIZE
 		_: mesh_size = Vector3.ONE
 
-	# Custom Y per type
 	var y_pos: float
 	match type_idx:
-		0: y_pos = mesh_size.y / 2.0 - 0.12  # red low
-		1: y_pos = 1.2                        # blue floating
-		2: y_pos = mesh_size.y / 2.0          # yellow normal
+		0: y_pos = mesh_size.y / 2.0 - 0.12   # red low
+		1: y_pos = 1.2                         # blue floating
+		2: y_pos = mesh_size.y / 2.0           # yellow normal
 		_: y_pos = mesh_size.y / 2.0
 
 	obstacle.position = Vector3(x_offset, y_pos, lane_z)
