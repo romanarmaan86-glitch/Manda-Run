@@ -1,4 +1,4 @@
-# platformspawner.gd (FULL - No changes, but full for completeness)
+# platformspawner.gd (current from your repo - full & unchanged)
 extends Node3D
 
 const PLATFORM_COUNT := 7
@@ -7,6 +7,7 @@ const DELETE_X := -20
 const MOVE_SPEED := 15.0
 
 @export var platform_scene: PackedScene
+
 var platforms: Array[Node3D] = []
 
 func _ready() -> void:
