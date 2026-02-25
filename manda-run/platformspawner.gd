@@ -1,4 +1,4 @@
-# platformspawner.gd (FULL - No changes, but full for completeness)
+# platformspawner.gd (current from your repo - full & unchanged)
 extends Node3D
 
 const PLATFORM_COUNT := 7
